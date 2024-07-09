@@ -20,7 +20,7 @@ RUN apt-get update && \
     apt-get install -y curl gnupg && \
     if [[ "$ROS_DISTRO" == "noetic" ]]; then \
         apt-key adv --keyserver hkp://keyserver.ubuntu.com:80 --recv-keys C1CF6E31E6BADE8868B172B4F42ED6FBAB17C654 && \
-        echo "deb http://packages.ros.org/ros/ubuntu focal main" > /etc/apt/sources.list.d/ros1-latest.list ; \
+        echo "deb http://packages.ros.org/ros/ubuntu focal main" > /etc/apt/sources.list.d/ros-latest.list ; \
     else \
     	curl -sSL https://raw.githubusercontent.com/ros/rosdistro/master/ros.key -o /usr/share/keyrings/ros-archive-keyring.gpg && \
     	echo "deb [arch=$(dpkg --print-architecture) signed-by=/usr/share/keyrings/ros-archive-keyring.gpg] http://packages.ros.org/ros2/ubuntu $(. /etc/os-release && echo $UBUNTU_CODENAME) main" | tee /etc/apt/sources.list.d/ros2.list > /dev/null ; \
@@ -33,7 +33,7 @@ RUN apt-get update && \
         git \
         python3-rosdep \
         python3-vcstool \
-        ros-${ROS_DISTRO}-ros-core \
+        ros-${ROS_DISTRO}-ros-base \
     && rm -rf /var/lib/apt/lists/*
 
 # copy contents of repository
@@ -166,7 +166,7 @@ RUN apt-get update && \
     apt-get install -y curl gnupg && \
     if [[ "$ROS_DISTRO" == "noetic" ]]; then \
         apt-key adv --keyserver hkp://keyserver.ubuntu.com:80 --recv-keys C1CF6E31E6BADE8868B172B4F42ED6FBAB17C654 && \
-        echo "deb http://packages.ros.org/ros/ubuntu focal main" > /etc/apt/sources.list.d/ros1-latest.list ; \
+        echo "deb http://packages.ros.org/ros/ubuntu focal main" > /etc/apt/sources.list.d/ros-latest.list ; \
     else \
     	curl -sSL https://raw.githubusercontent.com/ros/rosdistro/master/ros.key -o /usr/share/keyrings/ros-archive-keyring.gpg && \
     	echo "deb [arch=$(dpkg --print-architecture) signed-by=/usr/share/keyrings/ros-archive-keyring.gpg] http://packages.ros.org/ros2/ubuntu $(. /etc/os-release && echo $UBUNTU_CODENAME) main" | tee /etc/apt/sources.list.d/ros2.list > /dev/null ; \
@@ -184,7 +184,7 @@ RUN apt-get update && \
         gosu \
         python-is-python3 \
         python3-pip \
-        ros-${ROS_DISTRO}-ros-core \
+        ros-${ROS_DISTRO}-ros-base \
     && rm -rf /var/lib/apt/lists/*
 
 # configure pip
@@ -194,9 +194,10 @@ RUN mkdir -p ~/.config/pip && \
 # copy install script from dependencies stage
 COPY --from=dependencies $WORKSPACE/.install-dependencies.sh $WORKSPACE/.install-dependencies.sh
 
-# install dependencies
+
+##############3 INSTALL EXTRA PACKAGES/SCRIPTS ####################################################################
 RUN apt-get update && \
-    $WORKSPACE/.install-dependencies.sh && \
+    $WORKSPACE/.install-dependencies.sh --device agx-xavier --robot dingo --yes && \
     rm -rf /var/lib/apt/lists/*
 
 # install ROS CLI tools
