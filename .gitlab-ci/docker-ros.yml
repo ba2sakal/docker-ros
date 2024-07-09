@@ -79,9 +79,6 @@ default:
   image: docker:20.10.22-git
   services:
     - docker:20.10.22-dind
-  tags:
-    - privileged
-    - amd64
   before_script:
     - echo -e "section_start:`date +%s`:setup_section[collapsed=true]\r\e[0K[docker-ros] Setup docker-ros"
     - apk add bash
