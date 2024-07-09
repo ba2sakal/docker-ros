@@ -87,10 +87,12 @@ default:
       if [[ ! -d docker/docker-ros ]]; then
         mkdir -p docker
         git clone --branch agx_xavier --depth 1 https://github.com/ba2sakal/docker-ros.git docker/docker-ros
+        echo "Cloned branch: agx_xavier"
         cd docker/docker-ros
         git fetch origin ${DOCKER_ROS_GIT_REF}
         git checkout FETCH_HEAD
         cd -
+      ficd -
       fi
     - docker login -u ${REGISTRY_USER} -p ${REGISTRY_PASSWORD} ${REGISTRY}
     - docker context create buildx-context
