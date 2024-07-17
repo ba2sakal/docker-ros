@@ -1,6 +1,6 @@
 ARG BASE_IMAGE
 
-############ dependencies ######################################################
+############ dependencies ############################################################################################################################################################################################################
 FROM ${BASE_IMAGE} as dependencies
 
 USER root
@@ -12,7 +12,7 @@ ENV WORKSPACE=/docker-ros/ws
 WORKDIR $WORKSPACE
 RUN mkdir -p src/target src/upstream src/downstream
 
-# setup keys and sources.list for ROS packages
+# Setup keys and sources.list for ROS packages
 ARG ROS_DISTRO
 ENV ROS_DISTRO=${ROS_DISTRO}
 RUN test -n "$ROS_DISTRO" || (echo "missing build-arg: ROS_DISTRO" && false)
@@ -22,8 +22,20 @@ RUN apt-get update && \
         apt-key adv --keyserver hkp://keyserver.ubuntu.com:80 --recv-keys C1CF6E31E6BADE8868B172B4F42ED6FBAB17C654 && \
         echo "deb http://packages.ros.org/ros/ubuntu focal main" > /etc/apt/sources.list.d/ros-latest.list ; \
     else \
-    	curl -sSL https://raw.githubusercontent.com/ros/rosdistro/master/ros.key -o /usr/share/keyrings/ros-archive-keyring.gpg && \
-    	echo "deb [arch=$(dpkg --print-architecture) signed-by=/usr/share/keyrings/ros-archive-keyring.gpg] http://packages.ros.org/ros2/ubuntu $(. /etc/os-release && echo $UBUNTU_CODENAME) main" | tee /etc/apt/sources.list.d/ros2.list > /dev/null ; \
+        curl -sSL https://raw.githubusercontent.com/ros/rosdistro/master/ros.key -o /usr/share/keyrings/ros-archive-keyring.gpg && \
+        echo "deb [arch=$(dpkg --print-architecture) signed-by=/usr/share/keyrings/ros-archive-keyring.gpg] http://packages.ros.org/ros2/ubuntu $(. /etc/os-release && echo $UBUNTU_CODENAME) main" | tee /etc/apt/sources.list.d/ros2.list > /dev/null ; \
+    fi && \
+    # Check if CPR sources are already installed
+    if [ -e /etc/apt/sources.list.d/clearpath-latest.list ]; then \
+        echo -e "\e[33mWarn: CPR sources exist, skipping\e[0m"; \
+    else \
+        wget https://packages.clearpathrobotics.com/public.key -O - | apt-key add - && \
+        sh -c 'echo "deb https://packages.clearpathrobotics.com/stable/ubuntu $(lsb_release -cs) main" > /etc/apt/sources.list.d/clearpath-latest.list'; \
+        # Check if sources were added
+        if [ ! -e /etc/apt/sources.list.d/clearpath-latest.list ]; then \
+            echo -e "\e[31mError: Unable to add CPR sources, exiting\e[0m"; \
+            exit 1; \
+        fi; \
     fi && \
     rm -rf /var/lib/apt/lists/*
 
@@ -82,9 +94,8 @@ RUN echo "colcon list -p --base-paths src/ --packages-select \\" >> $WORKSPACE/.
     chmod +x $WORKSPACE/.remove-packages.sh && \
     $WORKSPACE/.remove-packages.sh 2> /dev/null | xargs rm -rf
 
-################################ ADD Custom ROSDEPS for DINGO ROBOT ##########################################################
-# create install script with list of rosdep dependencies
-# create install script with list of rosdep dependencies
+################################ ADD Custom ROSDEPS for DINGO ROBOT ###########################################
+# create install script with list of rosdep dependencies ###### DEPENDENCIES 14/18 ####################
 RUN echo "set -e" >> $WORKSPACE/.install-dependencies.sh && \
     source /opt/ros/$ROS_DISTRO/setup.bash && \
     apt-get update && \
@@ -155,6 +166,7 @@ RUN if [[ $ENABLE_RECURSIVE_CUSTOM_SCRIPT == 'true' ]]; then \
 ARG ADDITIONAL_FILES_DIR="docker/additional-files"
 RUN rm -rf src/target/${ADDITIONAL_FILES_DIR}
 
+#################################################################################################################################################################################################################################
 ############ dependencies-install ##############################################
 FROM ${BASE_IMAGE} AS dependencies-install
 ARG TARGETARCH
@@ -216,7 +228,7 @@ RUN mkdir -p ~/.config/pip && \
 COPY --from=dependencies $WORKSPACE/.install-dependencies.sh $WORKSPACE/.install-dependencies.sh
 
 
-##############3 INSTALL EXTRA PACKAGES/SCRIPTS ####################################################################
+###################################### INSTALL EXTRA PACKAGES/SCRIPTS ####################################################################
 RUN apt-get update && \
     $WORKSPACE/.install-dependencies.sh --device agx-xavier --robot dingo --yes && \
     rm -rf /var/lib/apt/lists/*
