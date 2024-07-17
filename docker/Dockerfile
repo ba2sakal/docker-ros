@@ -82,12 +82,33 @@ RUN echo "colcon list -p --base-paths src/ --packages-select \\" >> $WORKSPACE/.
     chmod +x $WORKSPACE/.remove-packages.sh && \
     $WORKSPACE/.remove-packages.sh 2> /dev/null | xargs rm -rf
 
+################################ ADD Custom ROSDEPS for DINGO ROBOT ##########################################################
+# create install script with list of rosdep dependencies
 # create install script with list of rosdep dependencies
 RUN echo "set -e" >> $WORKSPACE/.install-dependencies.sh && \
     source /opt/ros/$ROS_DISTRO/setup.bash && \
     apt-get update && \
-    rosdep init || true && \
+    echo -e "\e[94mConfiguring rosdep\e[0m" && \
+    if [ -e /etc/ros/rosdep/sources.list.d/20-default.list ]; then \
+        echo -e "\e[33mWarn: rosdep was initialized, skipping\e[0m"; \
+    else \
+        rosdep init && \
+        if [ ! -e /etc/ros/rosdep/sources.list.d/20-default.list ]; then \
+            echo -e "\e[31mError: rosdep failed to initialize, exiting\e[0m"; \
+            exit 1; \
+        fi; \
+    fi && \
+    if [ -e /etc/ros/rosdep/sources.list.d/50-clearpath.list ]; then \
+        echo -e "\e[33mWarn: CPR rosdeps exist, skipping\e[0m"; \
+    else \
+        wget -q https://raw.githubusercontent.com/clearpathrobotics/public-rosdistro/master/rosdep/50-clearpath.list -O /etc/ros/rosdep/sources.list.d/50-clearpath.list && \
+        if [ ! -e /etc/ros/rosdep/sources.list.d/50-clearpath.list ]; then \
+            echo -e "\e[31mError: CPR rosdeps, exiting\e[0m"; \
+            exit 1; \
+        fi; \
+    fi && \
     rosdep update --rosdistro ${ROS_DISTRO} && \
+    echo -e "\e[32mDone: Configuring rosdep\e[0m" && \
     export OS="ubuntu:$(lsb_release -c | awk '{print $2}')" && \
     if [[ "$ROS_DISTRO" = "rolling" && "$OS" = "ubuntu:focal" ]]; then export OS="ubuntu:jammy"; fi && \
     set -o pipefail && \
