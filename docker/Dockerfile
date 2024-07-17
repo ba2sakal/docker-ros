@@ -18,19 +18,19 @@ ENV ROS_DISTRO=${ROS_DISTRO}
 RUN test -n "$ROS_DISTRO" || (echo "missing build-arg: ROS_DISTRO" && false)
 RUN apt-get update && \
     apt-get install -y curl gnupg && \
-    if [[ "$ROS_DISTRO" == "noetic" ]]; then \
+    if [ "$ROS_DISTRO" = "noetic" ]; then \
         apt-key adv --keyserver hkp://keyserver.ubuntu.com:80 --recv-keys C1CF6E31E6BADE8868B172B4F42ED6FBAB17C654 && \
-        echo "deb http://packages.ros.org/ros/ubuntu focal main" > /etc/apt/sources.list.d/ros-latest.list ; \
+        echo "deb http://packages.ros.org/ros/ubuntu focal main" > /etc/apt/sources.list.d/ros-latest.list; \
     else \
         curl -sSL https://raw.githubusercontent.com/ros/rosdistro/master/ros.key -o /usr/share/keyrings/ros-archive-keyring.gpg && \
-        echo "deb [arch=$(dpkg --print-architecture) signed-by=/usr/share/keyrings/ros-archive-keyring.gpg] http://packages.ros.org/ros2/ubuntu $(. /etc/os-release && echo $UBUNTU_CODENAME) main" | tee /etc/apt/sources.list.d/ros2.list > /dev/null ; \
+        echo "deb [arch=$(dpkg --print-architecture) signed-by=/usr/share/keyrings/ros-archive-keyring.gpg] http://packages.ros.org/ros2/ubuntu $(. /etc/os-release && echo $UBUNTU_CODENAME) main" | tee /etc/apt/sources.list.d/ros2.list > /dev/null; \
     fi && \
     # Check if CPR sources are already installed
     if [ -e /etc/apt/sources.list.d/clearpath-latest.list ]; then \
         echo -e "\e[33mWarn: CPR sources exist, skipping\e[0m"; \
     else \
         wget -q https://packages.clearpathrobotics.com/public.key -O - | apt-key add - && \
-        sh -c 'echo "deb [arch=$(dpkg --print-architecture)] https://packages.clearpathrobotics.com/stable/ubuntu $(lsb_release -cs) main" > /etc/apt/sources.list.d/clearpath-latest.list'; \
+        echo "deb https://packages.clearpathrobotics.com/stable/ubuntu focal main" > /etc/apt/sources.list.d/clearpath-latest.list; \
         # Check if sources were added
         if [ ! -e /etc/apt/sources.list.d/clearpath-latest.list ]; then \
             echo -e "\e[31mError: Unable to add CPR sources, exiting\e[0m"; \
@@ -197,19 +197,19 @@ ENV ROS_DISTRO=${ROS_DISTRO}
 RUN test -n "$ROS_DISTRO" || (echo "missing build-arg: ROS_DISTRO" && false)
 RUN apt-get update && \
     apt-get install -y curl gnupg && \
-    if [[ "$ROS_DISTRO" == "noetic" ]]; then \
+    if [ "$ROS_DISTRO" = "noetic" ]; then \
         apt-key adv --keyserver hkp://keyserver.ubuntu.com:80 --recv-keys C1CF6E31E6BADE8868B172B4F42ED6FBAB17C654 && \
-        echo "deb http://packages.ros.org/ros/ubuntu focal main" > /etc/apt/sources.list.d/ros-latest.list ; \
+        echo "deb http://packages.ros.org/ros/ubuntu focal main" > /etc/apt/sources.list.d/ros-latest.list; \
     else \
         curl -sSL https://raw.githubusercontent.com/ros/rosdistro/master/ros.key -o /usr/share/keyrings/ros-archive-keyring.gpg && \
-        echo "deb [arch=$(dpkg --print-architecture) signed-by=/usr/share/keyrings/ros-archive-keyring.gpg] http://packages.ros.org/ros2/ubuntu $(. /etc/os-release && echo $UBUNTU_CODENAME) main" | tee /etc/apt/sources.list.d/ros2.list > /dev/null ; \
+        echo "deb [arch=$(dpkg --print-architecture) signed-by=/usr/share/keyrings/ros-archive-keyring.gpg] http://packages.ros.org/ros2/ubuntu $(. /etc/os-release && echo $UBUNTU_CODENAME) main" | tee /etc/apt/sources.list.d/ros2.list > /dev/null; \
     fi && \
     # Check if CPR sources are already installed
     if [ -e /etc/apt/sources.list.d/clearpath-latest.list ]; then \
         echo -e "\e[33mWarn: CPR sources exist, skipping\e[0m"; \
     else \
         wget -q https://packages.clearpathrobotics.com/public.key -O - | apt-key add - && \
-        sh -c 'echo "deb [arch=$(dpkg --print-architecture)] https://packages.clearpathrobotics.com/stable/ubuntu $(lsb_release -cs) main" > /etc/apt/sources.list.d/clearpath-latest.list'; \
+        echo "deb https://packages.clearpathrobotics.com/stable/ubuntu focal main" > /etc/apt/sources.list.d/clearpath-latest.list; \
         # Check if sources were added
         if [ ! -e /etc/apt/sources.list.d/clearpath-latest.list ]; then \
             echo -e "\e[31mError: Unable to add CPR sources, exiting\e[0m"; \
