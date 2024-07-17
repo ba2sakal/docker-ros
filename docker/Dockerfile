@@ -118,7 +118,7 @@ RUN echo "set -e" >> $WORKSPACE/.install-dependencies.sh && \
             exit 1; \
         fi; \
     fi && \
-    rosdep update --rosdistro ${ROS_DISTRO} && \
+    rosdep update && \
     echo -e "\e[32mDone: Configuring rosdep\e[0m" && \
     export OS="ubuntu:$(lsb_release -c | awk '{print $2}')" && \
     if [[ "$ROS_DISTRO" = "rolling" && "$OS" = "ubuntu:focal" ]]; then export OS="ubuntu:jammy"; fi && \
@@ -244,6 +244,7 @@ COPY --from=dependencies $WORKSPACE/.install-dependencies.sh $WORKSPACE/.install
 RUN apt-get update && \
     $WORKSPACE/.install-dependencies.sh --device agx-xavier --robot dingo --yes && \
     rm -rf /var/lib/apt/lists/*
+##########################################################################################################################################
 
 # install ROS CLI tools
 RUN source /opt/ros/$ROS_DISTRO/setup.bash && \
