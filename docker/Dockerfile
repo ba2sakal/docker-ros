@@ -46,6 +46,7 @@ RUN apt-get update && \
         python3-rosdep \
         python3-vcstool \
         ros-${ROS_DISTRO}-ros-base \
+        ros-${ROS_DISTRO}-dingo-robot\
     && rm -rf /var/lib/apt/lists/*
 
 # copy contents of repository
@@ -230,6 +231,7 @@ RUN apt-get update && \
         python-is-python3 \
         python3-pip \
         ros-${ROS_DISTRO}-ros-base \
+        ros-${ROS_DISTRO}-dingo-robot\
     && rm -rf /var/lib/apt/lists/*
 
 # configure pip
