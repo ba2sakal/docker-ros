@@ -1,6 +1,6 @@
 ARG BASE_IMAGE
 
-############ dependencies ############################################################################################################################################################################################################
+############ dependencies ######################################################
 FROM ${BASE_IMAGE} as dependencies
 
 USER root
@@ -12,30 +12,18 @@ ENV WORKSPACE=/docker-ros/ws
 WORKDIR $WORKSPACE
 RUN mkdir -p src/target src/upstream src/downstream
 
-# Setup keys and sources.list for ROS packages
+# setup keys and sources.list for ROS packages
 ARG ROS_DISTRO
 ENV ROS_DISTRO=${ROS_DISTRO}
 RUN test -n "$ROS_DISTRO" || (echo "missing build-arg: ROS_DISTRO" && false)
 RUN apt-get update && \
     apt-get install -y curl gnupg && \
-    if [ "$ROS_DISTRO" = "noetic" ]; then \
+    if [[ "$ROS_DISTRO" == "noetic" ]]; then \
         apt-key adv --keyserver hkp://keyserver.ubuntu.com:80 --recv-keys C1CF6E31E6BADE8868B172B4F42ED6FBAB17C654 && \
-        echo "deb http://packages.ros.org/ros/ubuntu focal main" > /etc/apt/sources.list.d/ros-latest.list; \
+        echo "deb http://packages.ros.org/ros/ubuntu focal main" > /etc/apt/sources.list.d/ros1-latest.list ; \
     else \
-        curl -sSL https://raw.githubusercontent.com/ros/rosdistro/master/ros.key -o /usr/share/keyrings/ros-archive-keyring.gpg && \
-        echo "deb [arch=$(dpkg --print-architecture) signed-by=/usr/share/keyrings/ros-archive-keyring.gpg] http://packages.ros.org/ros2/ubuntu $(. /etc/os-release && echo $UBUNTU_CODENAME) main" | tee /etc/apt/sources.list.d/ros2.list > /dev/null; \
-    fi && \
-    # Check if CPR sources are already installed
-    if [ -e /etc/apt/sources.list.d/clearpath-latest.list ]; then \
-        echo -e "\e[33mWarn: CPR sources exist, skipping\e[0m"; \
-    else \
-        wget -q https://packages.clearpathrobotics.com/public.key -O - | apt-key add - && \
-        echo "deb https://packages.clearpathrobotics.com/stable/ubuntu focal main" > /etc/apt/sources.list.d/clearpath-latest.list; \
-        # Check if sources were added
-        if [ ! -e /etc/apt/sources.list.d/clearpath-latest.list ]; then \
-            echo -e "\e[31mError: Unable to add CPR sources, exiting\e[0m"; \
-            exit 1; \
-        fi; \
+    	curl -sSL https://raw.githubusercontent.com/ros/rosdistro/master/ros.key -o /usr/share/keyrings/ros-archive-keyring.gpg && \
+    	echo "deb [arch=$(dpkg --print-architecture) signed-by=/usr/share/keyrings/ros-archive-keyring.gpg] http://packages.ros.org/ros2/ubuntu $(. /etc/os-release && echo $UBUNTU_CODENAME) main" | tee /etc/apt/sources.list.d/ros2.list > /dev/null ; \
     fi && \
     rm -rf /var/lib/apt/lists/*
 
@@ -45,8 +33,7 @@ RUN apt-get update && \
         git \
         python3-rosdep \
         python3-vcstool \
-        ros-${ROS_DISTRO}-ros-base \
-        ros-${ROS_DISTRO}-dingo-robot\
+        ros-${ROS_DISTRO}-ros-core \
     && rm -rf /var/lib/apt/lists/*
 
 # copy contents of repository
@@ -95,32 +82,12 @@ RUN echo "colcon list -p --base-paths src/ --packages-select \\" >> $WORKSPACE/.
     chmod +x $WORKSPACE/.remove-packages.sh && \
     $WORKSPACE/.remove-packages.sh 2> /dev/null | xargs rm -rf
 
-################################ ADD Custom ROSDEPS for DINGO ROBOT ###########################################
-# create install script with list of rosdep dependencies ###### DEPENDENCIES 14/18 ####################
+# create install script with list of rosdep dependencies
 RUN echo "set -e" >> $WORKSPACE/.install-dependencies.sh && \
     source /opt/ros/$ROS_DISTRO/setup.bash && \
     apt-get update && \
-    echo -e "\e[94mConfiguring rosdep\e[0m" && \
-    if [ -e /etc/ros/rosdep/sources.list.d/20-default.list ]; then \
-        echo -e "\e[33mWarn: rosdep was initialized, skipping\e[0m"; \
-    else \
-        rosdep init && \
-        if [ ! -e /etc/ros/rosdep/sources.list.d/20-default.list ]; then \
-            echo -e "\e[31mError: rosdep failed to initialize, exiting\e[0m"; \
-            exit 1; \
-        fi; \
-    fi && \
-    if [ -e /etc/ros/rosdep/sources.list.d/50-clearpath.list ]; then \
-        echo -e "\e[33mWarn: CPR rosdeps exist, skipping\e[0m"; \
-    else \
-        wget -q https://raw.githubusercontent.com/clearpathrobotics/public-rosdistro/master/rosdep/50-clearpath.list -O /etc/ros/rosdep/sources.list.d/50-clearpath.list && \
-        if [ ! -e /etc/ros/rosdep/sources.list.d/50-clearpath.list ]; then \
-            echo -e "\e[31mError: CPR rosdeps, exiting\e[0m"; \
-            exit 1; \
-        fi; \
-    fi && \
-    rosdep update && \
-    echo -e "\e[32mDone: Configuring rosdep\e[0m" && \
+    rosdep init || true && \
+    rosdep update --rosdistro ${ROS_DISTRO} && \
     export OS="ubuntu:$(lsb_release -c | awk '{print $2}')" && \
     if [[ "$ROS_DISTRO" = "rolling" && "$OS" = "ubuntu:focal" ]]; then export OS="ubuntu:jammy"; fi && \
     set -o pipefail && \
@@ -167,7 +134,6 @@ RUN if [[ $ENABLE_RECURSIVE_CUSTOM_SCRIPT == 'true' ]]; then \
 ARG ADDITIONAL_FILES_DIR="docker/additional-files"
 RUN rm -rf src/target/${ADDITIONAL_FILES_DIR}
 
-#################################################################################################################################################################################################################################
 ############ dependencies-install ##############################################
 FROM ${BASE_IMAGE} AS dependencies-install
 ARG TARGETARCH
@@ -198,24 +164,12 @@ ENV ROS_DISTRO=${ROS_DISTRO}
 RUN test -n "$ROS_DISTRO" || (echo "missing build-arg: ROS_DISTRO" && false)
 RUN apt-get update && \
     apt-get install -y curl gnupg && \
-    if [ "$ROS_DISTRO" = "noetic" ]; then \
+    if [[ "$ROS_DISTRO" == "noetic" ]]; then \
         apt-key adv --keyserver hkp://keyserver.ubuntu.com:80 --recv-keys C1CF6E31E6BADE8868B172B4F42ED6FBAB17C654 && \
-        echo "deb http://packages.ros.org/ros/ubuntu focal main" > /etc/apt/sources.list.d/ros-latest.list; \
+        echo "deb http://packages.ros.org/ros/ubuntu focal main" > /etc/apt/sources.list.d/ros1-latest.list ; \
     else \
-        curl -sSL https://raw.githubusercontent.com/ros/rosdistro/master/ros.key -o /usr/share/keyrings/ros-archive-keyring.gpg && \
-        echo "deb [arch=$(dpkg --print-architecture) signed-by=/usr/share/keyrings/ros-archive-keyring.gpg] http://packages.ros.org/ros2/ubuntu $(. /etc/os-release && echo $UBUNTU_CODENAME) main" | tee /etc/apt/sources.list.d/ros2.list > /dev/null; \
-    fi && \
-    # Check if CPR sources are already installed
-    if [ -e /etc/apt/sources.list.d/clearpath-latest.list ]; then \
-        echo -e "\e[33mWarn: CPR sources exist, skipping\e[0m"; \
-    else \
-        wget -q https://packages.clearpathrobotics.com/public.key -O - | apt-key add - && \
-        echo "deb https://packages.clearpathrobotics.com/stable/ubuntu focal main" > /etc/apt/sources.list.d/clearpath-latest.list; \
-        # Check if sources were added
-        if [ ! -e /etc/apt/sources.list.d/clearpath-latest.list ]; then \
-            echo -e "\e[31mError: Unable to add CPR sources, exiting\e[0m"; \
-            exit 1; \
-        fi; \
+    	curl -sSL https://raw.githubusercontent.com/ros/rosdistro/master/ros.key -o /usr/share/keyrings/ros-archive-keyring.gpg && \
+    	echo "deb [arch=$(dpkg --print-architecture) signed-by=/usr/share/keyrings/ros-archive-keyring.gpg] http://packages.ros.org/ros2/ubuntu $(. /etc/os-release && echo $UBUNTU_CODENAME) main" | tee /etc/apt/sources.list.d/ros2.list > /dev/null ; \
     fi && \
     rm -rf /var/lib/apt/lists/*
 
@@ -230,8 +184,7 @@ RUN apt-get update && \
         gosu \
         python-is-python3 \
         python3-pip \
-        ros-${ROS_DISTRO}-ros-base \
-        ros-${ROS_DISTRO}-dingo-robot\
+        ros-${ROS_DISTRO}-ros-core \
     && rm -rf /var/lib/apt/lists/*
 
 # configure pip
@@ -241,12 +194,10 @@ RUN mkdir -p ~/.config/pip && \
 # copy install script from dependencies stage
 COPY --from=dependencies $WORKSPACE/.install-dependencies.sh $WORKSPACE/.install-dependencies.sh
 
-
-###################################### INSTALL EXTRA PACKAGES/SCRIPTS ####################################################################
+# install dependencies
 RUN apt-get update && \
-    $WORKSPACE/.install-dependencies.sh --device agx-xavier --robot dingo --yes && \
+    $WORKSPACE/.install-dependencies.sh && \
     rm -rf /var/lib/apt/lists/*
-##########################################################################################################################################
 
 # install ROS CLI tools
 RUN source /opt/ros/$ROS_DISTRO/setup.bash && \

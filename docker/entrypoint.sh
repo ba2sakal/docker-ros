@@ -1,6 +1,21 @@
 #!/bin/bash
 set -e
 
+# Function to print welcome information
+print_welcome_info() {
+    echo "ZED ROS2 Docker Image"
+    echo "---------------------"
+    echo 'ROS distro: ' $ROS_DISTRO
+    echo 'DDS middleware: ' $RMW_IMPLEMENTATION
+    echo 'ROS 2 Workspaces:' $COLCON_PREFIX_PATH
+    echo 'ROS 2 Domain ID:' $ROS_DOMAIN_ID
+    echo 'Machine IPs:' $ROS_IP
+    echo "---"  
+    echo 'Available ZED packages:'
+    ros2 pkg list | grep zed
+    echo "---------------------" 
+}
+
 # source ROS workspace
 source /opt/ros/$ROS_DISTRO/setup.bash
 [[ -f $WORKSPACE/devel/setup.bash ]] && source $WORKSPACE/devel/setup.bash
@@ -29,7 +44,10 @@ if [[ $DOCKER_UID && $DOCKER_GID ]]; then
         fi
     fi
     [[ $(pwd) == "$WORKSPACE" ]] && cd /home/$DOCKER_USER/ws
+
+    print_welcome_info
     exec gosu $DOCKER_USER "$@"
 else
+    print_welcome_info
     exec "$@"
 fi
