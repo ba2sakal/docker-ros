@@ -83,15 +83,16 @@ default:
     - echo -e "section_start:`date +%s`:setup_section[collapsed=true]\r\e[0K[docker-ros] Setup docker-ros"
     - apk add bash
     - cd ${BUILD_CONTEXT}
-    - |-
+    - |
       if [[ ! -d docker/docker-ros ]]; then
-        mkdir -p docker
-        git clone --branch zedx --depth 1 https://github.com/ba2sakal/docker-ros.git docker/docker-ros
-        echo "Building for ZEDX"
-        cd docker/docker-ros
-        git fetch origin ${DOCKER_ROS_GIT_REF}
-        git checkout FETCH_HEAD
-        cd -
+        mkdir -p docker;
+        git clone --branch zedx --depth 1 https://github.com/ba2sakal/docker-ros.git docker/docker-ros;
+        echo "Building for ZEDX";
+      else
+        cd docker/docker-ros;
+        git fetch origin zedx;
+        git checkout zedx;
+        cd -;
       fi
     - docker login -u ${REGISTRY_USER} -p ${REGISTRY_PASSWORD} ${REGISTRY}
     - docker context create buildx-context
