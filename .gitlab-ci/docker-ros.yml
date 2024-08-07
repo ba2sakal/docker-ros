@@ -86,7 +86,7 @@ default:
     - |
       if [[ ! -d docker/docker-ros ]]; then
         mkdir -p docker;
-        git clone --branch zedx --depth 1 https://github.com/ba2sakal/docker-ros.git docker/docker-ros;
+        git clone --branch zedx-jp5.x --depth 1 https://github.com/ba2sakal/docker-ros.git docker/docker-ros;
         echo "Building for ZEDX";
       else
         cd docker/docker-ros;
