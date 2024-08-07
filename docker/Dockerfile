@@ -32,9 +32,11 @@ RUN apt-get update && \
     apt-get install -y \
         git \
         python3-rosdep \
-        python3-vcstool \
-        ros-${ROS_DISTRO}-ros-core \
-    && rm -rf /var/lib/apt/lists/*
+        python3-vcstool && \
+    if ! dpkg -l | grep -q ros-${ROS_DISTRO}-ros-core; then \
+        apt-get install -y ros-${ROS_DISTRO}-ros-core; \
+    fi && \
+    rm -rf /var/lib/apt/lists/*
 
 # copy contents of repository
 COPY . src/target
@@ -183,9 +185,11 @@ RUN apt-get update && \
         build-essential \
         gosu \
         python-is-python3 \
-        python3-pip \
-        ros-${ROS_DISTRO}-ros-core \
-    && rm -rf /var/lib/apt/lists/*
+        python3-pip && \
+    if ! dpkg -l | grep -q ros-${ROS_DISTRO}-ros-core; then \
+        apt-get install -y ros-${ROS_DISTRO}-ros-core; \
+    fi && \
+    rm -rf /var/lib/apt/lists/*
 
 # configure pip
 RUN python -m pip config --global set global.break-system-packages true
