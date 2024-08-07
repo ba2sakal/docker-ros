@@ -87,7 +87,7 @@ default:
       if [[ ! -d docker/docker-ros ]]; then
         mkdir -p docker
         git clone --depth 1 https://github.com/ba2sakal/docker-ros.git docker/docker-ros
-        echo "Building for AGX Xavier"
+        echo "Building for AGX"
         cd docker/docker-ros
         git fetch origin ${DOCKER_ROS_GIT_REF}
         git checkout FETCH_HEAD
@@ -109,10 +109,12 @@ default:
       docker push ${IMAGE}
       echo -e "section_end:`date +%s`:push_section\r\e[0K"
 
+
 dev-amd64:
   stage: Build dev Images
   extends: .build
-  tags: large
+  tags: 
+    - large
   rules:
     - if: $PLATFORM =~ /.*amd64.*/ && $TARGET =~ /.*dev.*/
   variables:
@@ -125,7 +127,8 @@ dev-amd64:
 dev-arm64:
   stage: Build dev Images
   extends: .build
-  tags: large
+  tags: 
+    - large
   rules:
     - if: $PLATFORM =~ /.*arm64.*/ && $TARGET =~ /.*dev.*/
   variables:
@@ -138,7 +141,8 @@ dev-arm64:
 run-amd64:
   stage: Build run Images
   extends: .build
-  tags: large
+  tags: 
+    - large
   needs:
     - job: dev-amd64
       optional: true
@@ -154,7 +158,8 @@ run-amd64:
 run-arm64:
   stage: Build run Images
   extends: .build
-  tags: large
+  tags: 
+    - large
   needs:
     - job: dev-arm64
       optional: true
