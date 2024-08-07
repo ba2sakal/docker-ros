@@ -112,6 +112,7 @@ default:
 dev-amd64:
   stage: Build dev Images
   extends: .build
+  tags: large
   rules:
     - if: $PLATFORM =~ /.*amd64.*/ && $TARGET =~ /.*dev.*/
   variables:
@@ -124,6 +125,7 @@ dev-amd64:
 dev-arm64:
   stage: Build dev Images
   extends: .build
+  tags: large
   rules:
     - if: $PLATFORM =~ /.*arm64.*/ && $TARGET =~ /.*dev.*/
   variables:
@@ -136,6 +138,7 @@ dev-arm64:
 run-amd64:
   stage: Build run Images
   extends: .build
+  tags: large
   needs:
     - job: dev-amd64
       optional: true
@@ -151,6 +154,7 @@ run-amd64:
 run-arm64:
   stage: Build run Images
   extends: .build
+  tags: large
   needs:
     - job: dev-arm64
       optional: true
