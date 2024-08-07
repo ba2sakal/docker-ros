@@ -114,7 +114,7 @@ dev-amd64:
   stage: Build dev Images
   extends: .build
   tags: 
-    -large
+    - large
   rules:
     - if: $PLATFORM =~ /.*amd64.*/ && $TARGET =~ /.*dev.*/
   variables:
