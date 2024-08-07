@@ -157,10 +157,6 @@ RUN echo "# R${L4T_MAJOR} (release), REVISION: ${L4T_MINOR}" > /etc/nv_tegra_rel
 # Install the ZED ROS2 Wrapper
 ENV ROS_DISTRO ${ROS2_DIST}
 
-# Copy the sources in the Docker image
-WORKDIR /root/ros2_ws/src
-COPY tmp_sources/ ./
-
 # Install missing dependencies
 WORKDIR /root/ros2_ws/src
 RUN wget https://github.com/ros/xacro/archive/refs/tags/${XACRO_VERSION}.tar.gz -O - | tar -xvz && mv xacro-${XACRO_VERSION} xacro && \
