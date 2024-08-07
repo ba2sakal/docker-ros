@@ -12,28 +12,12 @@ ENV WORKSPACE=/docker-ros/ws
 WORKDIR $WORKSPACE
 RUN mkdir -p src/target src/upstream src/downstream
 
-# setup keys and sources.list for ROS packages
-ARG ROS_DISTRO
-ENV ROS_DISTRO=${ROS_DISTRO}
-RUN test -n "$ROS_DISTRO" || (echo "missing build-arg: ROS_DISTRO" && false)
-RUN apt-get update && \
-    apt-get install -y curl gnupg && \
-    if [[ "$ROS_DISTRO" == "noetic" ]]; then \
-        apt-key adv --keyserver hkp://keyserver.ubuntu.com:80 --recv-keys C1CF6E31E6BADE8868B172B4F42ED6FBAB17C654 && \
-        echo "deb http://packages.ros.org/ros/ubuntu focal main" > /etc/apt/sources.list.d/ros1-latest.list ; \
-    else \
-    	curl -sSL https://raw.githubusercontent.com/ros/rosdistro/master/ros.key -o /usr/share/keyrings/ros-archive-keyring.gpg && \
-    	echo "deb [arch=$(dpkg --print-architecture) signed-by=/usr/share/keyrings/ros-archive-keyring.gpg] http://packages.ros.org/ros2/ubuntu $(. /etc/os-release && echo $UBUNTU_CODENAME) main" | tee /etc/apt/sources.list.d/ros2.list > /dev/null ; \
-    fi && \
-    rm -rf /var/lib/apt/lists/*
-
 # install ROS bootstrapping tools
 RUN apt-get update && \
     apt-get install -y \
         git \
         python3-rosdep \
         python3-vcstool \
-        ros-${ROS_DISTRO}-ros-core \
     && rm -rf /var/lib/apt/lists/*
 
 # copy contents of repository
@@ -158,21 +142,6 @@ ENV WORKSPACE=/docker-ros/ws
 ENV COLCON_HOME=$WORKSPACE/.colcon
 WORKDIR $WORKSPACE
 
-# setup keys and sources.list for ROS packages
-ARG ROS_DISTRO
-ENV ROS_DISTRO=${ROS_DISTRO}
-RUN test -n "$ROS_DISTRO" || (echo "missing build-arg: ROS_DISTRO" && false)
-RUN apt-get update && \
-    apt-get install -y curl gnupg && \
-    if [[ "$ROS_DISTRO" == "noetic" ]]; then \
-        apt-key adv --keyserver hkp://keyserver.ubuntu.com:80 --recv-keys C1CF6E31E6BADE8868B172B4F42ED6FBAB17C654 && \
-        echo "deb http://packages.ros.org/ros/ubuntu focal main" > /etc/apt/sources.list.d/ros1-latest.list ; \
-    else \
-    	curl -sSL https://raw.githubusercontent.com/ros/rosdistro/master/ros.key -o /usr/share/keyrings/ros-archive-keyring.gpg && \
-    	echo "deb [arch=$(dpkg --print-architecture) signed-by=/usr/share/keyrings/ros-archive-keyring.gpg] http://packages.ros.org/ros2/ubuntu $(. /etc/os-release && echo $UBUNTU_CODENAME) main" | tee /etc/apt/sources.list.d/ros2.list > /dev/null ; \
-    fi && \
-    rm -rf /var/lib/apt/lists/*
-
 # copy contents of files-folder into image
 ARG ADDITIONAL_FILES_DIR="docker/additional-files"
 ADD ${ADDITIONAL_FILES_DIR}* /docker-ros/additional-files/
@@ -184,7 +153,6 @@ RUN apt-get update && \
         gosu \
         python-is-python3 \
         python3-pip \
-        ros-${ROS_DISTRO}-ros-core \
     && rm -rf /var/lib/apt/lists/*
 
 # configure pip
