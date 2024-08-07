@@ -72,7 +72,7 @@ RUN echo "set -e" >> $WORKSPACE/.install-dependencies.sh && \
     apt-get update && \
     rosdep init || true && \
     rosdep update --rosdistro ${ROS_DISTRO} && \
-    export OS="ubuntu:$(lsb_release -c | awk '{print $2}')" && \
+    export OS="ubuntu:jammy" && \
     if [[ "$ROS_DISTRO" = "rolling" && "$OS" = "ubuntu:focal" ]]; then export OS="ubuntu:jammy"; fi && \
     set -o pipefail && \
     ROS_PACKAGE_PATH=$(pwd):$ROS_PACKAGE_PATH rosdep install --os $OS -y --simulate --from-paths src --ignore-src \
