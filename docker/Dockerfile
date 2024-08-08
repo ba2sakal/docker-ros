@@ -52,20 +52,20 @@ RUN if [[ $ENABLE_RECURSIVE_VCS_IMPORT == 'true' ]]; then \
     elif [[ -f src/target/${VCS_IMPORT_FILE} ]]; then \
         vcs import --recursive src/upstream < src/target/${VCS_IMPORT_FILE} ; \
     fi
-  # create install script with list of rosdep dependencies
-RUN echo "set -e" >> $WORKSPACE/.install-dependencies.sh && \
-    source /opt/ros/$ROS_DISTRO/setup.bash && \
-    apt-get update && \
-    rosdep init || true && \
-    rosdep update --rosdistro ${ROS_DISTRO} && \
-    export OS="ubuntu:jammy" && \
-    if [[ "$ROS_DISTRO" = "humble" && "$OS" = "ubuntu:focal" ]]; then export OS="ubuntu:jammy"; fi && \
-    set -o pipefail && \
-    ROS_PACKAGE_PATH=$(pwd):$ROS_PACKAGE_PATH rosdep install --os $OS -y --simulate --from-paths src --ignore-src \
-    | sed -E "s/'apt-get install -y ([^']+)' \(alternative 1\/1\)/apt-get install -y \1/" \
-    | tee -a $WORKSPACE/.install-dependencies.sh && \
-    chmod +x $WORKSPACE/.install-dependencies.sh && \
-    rm -rf /var/lib/apt/lists/*
+#   # create install script with list of rosdep dependencies
+# RUN echo "set -e" >> $WORKSPACE/.install-dependencies.sh && \
+#     source /opt/ros/$ROS_DISTRO/setup.bash && \
+#     apt-get update && \
+#     rosdep init || true && \
+#     rosdep update --rosdistro ${ROS_DISTRO} && \
+#     export OS="ubuntu:jammy" && \
+#     if [[ "$ROS_DISTRO" = "humble" && "$OS" = "ubuntu:focal" ]]; then export OS="ubuntu:jammy"; fi && \
+#     set -o pipefail && \
+#     ROS_PACKAGE_PATH=$(pwd):$ROS_PACKAGE_PATH rosdep install --os $OS -y --simulate --from-paths src --ignore-src \
+#     | sed -E "s/'apt-get install -y ([^']+)' \(alternative 1\/1\)/apt-get install -y \1/" \
+#     | tee -a $WORKSPACE/.install-dependencies.sh && \
+#     chmod +x $WORKSPACE/.install-dependencies.sh && \
+#     rm -rf /var/lib/apt/lists/*
 
 ############ dependencies-install ##############################################
 FROM ${BASE_IMAGE} AS dependencies-install
@@ -91,6 +91,7 @@ ENV WORKSPACE=/docker-ros/ws
 ENV COLCON_HOME=$WORKSPACE/.colcon
 WORKDIR $WORKSPACE
 
+COPY --from=dependencies $WORKSPACE/src $WORKSPACE/src
 
 # install essential build tools and dependencies for install script
 RUN apt-get update && \
@@ -163,7 +164,6 @@ RUN echo "# R${L4T_MAJOR} (release), REVISION: ${L4T_MINOR}" > /etc/nv_tegra_rel
 ENV ROS_DISTRO ${ROS2_DIST}
 
 # Install missing dependencies
-WORKDIR /root/ros2_ws/src
 RUN wget https://github.com/ros/xacro/archive/refs/tags/${XACRO_VERSION}.tar.gz -O - | tar -xvz && mv xacro-${XACRO_VERSION} xacro && \
   wget https://github.com/ros/diagnostics/archive/refs/tags/${DIAGNOSTICS_VERSION}.tar.gz -O - | tar -xvz && mv diagnostics-${DIAGNOSTICS_VERSION} diagnostics && \
   wget https://github.com/ament/ament_lint/archive/refs/tags/${AMENT_LINT_VERSION}.tar.gz -O - | tar -xvz && mv ament_lint-${AMENT_LINT_VERSION} ament-lint && \
@@ -174,18 +174,27 @@ RUN wget https://github.com/ros/xacro/archive/refs/tags/${XACRO_VERSION}.tar.gz 
   git clone https://github.com/ros-drivers/nmea_msgs.git --branch ros2 && \  
   git clone https://github.com/ros/angles.git --branch humble-devel
 
+# Check that all the dependencies are satisfied
+RUN apt-get update -y || true && rosdep update && \
+  rosdep install --from-paths src --ignore-src -r -y && \
+  rm -rf /var/lib/apt/lists/*
+
+
 # Install cython
 RUN python3 -m pip install --upgrade cython
+##############################################################################################
+
+
 
 #############################################################################################
 
-# copy install script from dependencies stage
-COPY --from=dependencies $WORKSPACE/.install-dependencies.sh $WORKSPACE/.install-dependencies.sh
+# # copy install script from dependencies stage
+# COPY --from=dependencies $WORKSPACE/.install-dependencies.sh $WORKSPACE/.install-dependencies.sh
 
-# install dependencies
-RUN apt-get update && \
-    $WORKSPACE/.install-dependencies.sh && \
-    rm -rf /var/lib/apt/lists/*
+# # install dependencies
+# RUN apt-get update && \
+#     $WORKSPACE/.install-dependencies.sh && \
+#     rm -rf /var/lib/apt/lists/*
     
   ###################################################################################################################################################
 
