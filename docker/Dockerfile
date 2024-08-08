@@ -52,6 +52,20 @@ RUN if [[ $ENABLE_RECURSIVE_VCS_IMPORT == 'true' ]]; then \
     elif [[ -f src/target/${VCS_IMPORT_FILE} ]]; then \
         vcs import --recursive src/upstream < src/target/${VCS_IMPORT_FILE} ; \
     fi
+  # create install script with list of rosdep dependencies
+RUN echo "set -e" >> $WORKSPACE/.install-dependencies.sh && \
+    source /opt/ros/$ROS_DISTRO/setup.bash && \
+    apt-get update && \
+    rosdep init || true && \
+    rosdep update --rosdistro ${ROS_DISTRO} && \
+    export OS="ubuntu:jammy" && \
+    if [[ "$ROS_DISTRO" = "humble" && "$OS" = "ubuntu:focal" ]]; then export OS="ubuntu:jammy"; fi && \
+    set -o pipefail && \
+    ROS_PACKAGE_PATH=$(pwd):$ROS_PACKAGE_PATH rosdep install --os $OS -y --simulate --from-paths src --ignore-src \
+    | sed -E "s/'apt-get install -y ([^']+)' \(alternative 1\/1\)/apt-get install -y \1/" \
+    | tee -a $WORKSPACE/.install-dependencies.sh && \
+    chmod +x $WORKSPACE/.install-dependencies.sh && \
+    rm -rf /var/lib/apt/lists/*
 
 ############ dependencies-install ##############################################
 FROM ${BASE_IMAGE} AS dependencies-install
@@ -89,7 +103,6 @@ RUN apt-get update && \
 
 # configure pip
 RUN python -m pip config --global set global.break-system-packages true
-
 
 ######################################################################################################
 ARG ZED_SDK_MAJOR=4
@@ -150,6 +163,7 @@ RUN echo "# R${L4T_MAJOR} (release), REVISION: ${L4T_MINOR}" > /etc/nv_tegra_rel
 ENV ROS_DISTRO ${ROS2_DIST}
 
 # Install missing dependencies
+WORKDIR /root/ros2_ws/src
 RUN wget https://github.com/ros/xacro/archive/refs/tags/${XACRO_VERSION}.tar.gz -O - | tar -xvz && mv xacro-${XACRO_VERSION} xacro && \
   wget https://github.com/ros/diagnostics/archive/refs/tags/${DIAGNOSTICS_VERSION}.tar.gz -O - | tar -xvz && mv diagnostics-${DIAGNOSTICS_VERSION} diagnostics && \
   wget https://github.com/ament/ament_lint/archive/refs/tags/${AMENT_LINT_VERSION}.tar.gz -O - | tar -xvz && mv ament_lint-${AMENT_LINT_VERSION} ament-lint && \
@@ -160,39 +174,20 @@ RUN wget https://github.com/ros/xacro/archive/refs/tags/${XACRO_VERSION}.tar.gz 
   git clone https://github.com/ros-drivers/nmea_msgs.git --branch ros2 && \  
   git clone https://github.com/ros/angles.git --branch humble-devel
 
-
 # Install cython
 RUN python3 -m pip install --upgrade cython
 
-  ###################################################################################################################################################
+#############################################################################################
 
-# Add the ROS 2 GPG key
-RUN curl -sSL https://raw.githubusercontent.com/ros/rosdistro/master/ros.key -o /usr/share/keyrings/ros-archive-keyring.gpg
-
-# Add the ROS 2 repository
-RUN echo "deb [arch=$(dpkg --print-architecture) signed-by=/usr/share/keyrings/ros-archive-keyring.gpg] http://packages.ros.org/ros2/ubuntu jammy main" | tee /etc/apt/sources.list.d/ros2.list > /dev/null
-
-  # create install script with list of rosdep dependencies
-RUN echo "set -e" >> $WORKSPACE/.install-dependencies.sh && \
-    source /opt/ros/$ROS_DISTRO/setup.bash && \
-    apt-get update && \
-    rosdep init || true && \
-    rosdep update --rosdistro ${ROS_DISTRO} && \
-    export OS="ubuntu:jammy" && \
-    if [[ "$ROS_DISTRO" = "humble" && "$OS" = "ubuntu:focal" ]]; then export OS="ubuntu:jammy"; fi && \
-    set -o pipefail && \
-    ROS_PACKAGE_PATH=$(pwd):$ROS_PACKAGE_PATH rosdep install --os $OS -y --simulate --from-paths src --ignore-src \
-    | sed -E "s/'apt-get install -y ([^']+)' \(alternative 1\/1\)/apt-get install -y \1/" \
-    | tee -a $WORKSPACE/.install-dependencies.sh && \
-    chmod +x $WORKSPACE/.install-dependencies.sh && \
-    rm -rf /var/lib/apt/lists/*
-
-
+# copy install script from dependencies stage
+COPY --from=dependencies $WORKSPACE/.install-dependencies.sh $WORKSPACE/.install-dependencies.sh
 
 # install dependencies
 RUN apt-get update && \
     $WORKSPACE/.install-dependencies.sh && \
     rm -rf /var/lib/apt/lists/*
+    
+  ###################################################################################################################################################
 
 # install ROS CLI tools
 RUN source /opt/ros/$ROS_DISTRO/install/setup.bash && \
