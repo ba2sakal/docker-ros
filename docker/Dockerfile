@@ -54,28 +54,21 @@ RUN if [[ $ENABLE_RECURSIVE_VCS_IMPORT == 'true' ]]; then \
     fi
 
     
-# Create install script with custom installation commands to install script
-ARG CUSTOM_SCRIPT_FILE="docker/custom.sh"
-ARG ENABLE_RECURSIVE_CUSTOM_SCRIPT="false"
+# create install script with list of rosdep dependencies
 RUN echo "set -e" >> $WORKSPACE/.install-dependencies.sh && \
-    if [[ $ENABLE_RECURSIVE_CUSTOM_SCRIPT == 'true' ]]; then \
-        find . -type f -name $(basename ${CUSTOM_SCRIPT_FILE}) -exec sed '$a\' {} >> $WORKSPACE/.install-dependencies.sh \; ; \
-    elif [[ -f src/target/${CUSTOM_SCRIPT_FILE} ]]; then \
-        cat src/target/${CUSTOM_SCRIPT_FILE} >> $WORKSPACE/.install-dependencies.sh ; \
-    fi
-
-# ADd to script list of rosdep dependencies
-RUN source /opt/ros/$ROS_DISTRO/install/setup.bash && \
+    source /opt/ros/$ROS_DISTRO/setup.bash && \
     apt-get update && \
     rosdep init || true && \
     rosdep update --rosdistro ${ROS_DISTRO} && \
     export OS="ubuntu:jammy" && \
+    if [[ "$ROS_DISTRO" = "humble" && "$OS" = "ubuntu:focal" ]]; then export OS="ubuntu:jammy"; fi && \
     set -o pipefail && \
     ROS_PACKAGE_PATH=$(pwd):$ROS_PACKAGE_PATH rosdep install --os $OS -y --simulate --from-paths src --ignore-src \
     | sed -E "s/'apt-get install -y ([^']+)' \(alternative 1\/1\)/apt-get install -y \1/" \
     | tee -a $WORKSPACE/.install-dependencies.sh && \
     chmod +x $WORKSPACE/.install-dependencies.sh && \
     rm -rf /var/lib/apt/lists/*
+
 
 ############ dependencies-install ##############################################
 FROM ${BASE_IMAGE} AS dependencies-install
@@ -114,101 +107,103 @@ RUN apt-get update && \
 # configure pip
 RUN python -m pip config --global set global.break-system-packages true
 
+
+######################################################################################################
+ARG ZED_SDK_MAJOR=4
+ARG ZED_SDK_MINOR=1
+ARG ZED_SDK_PATCH=0
+ARG JETPACK_MAJOR=5
+ARG JETPACK_MINOR=0
+ARG L4T_MAJOR=35
+ARG L4T_MINOR=1
+
+ARG ROS2_DIST=humble       # ROS2 distribution
+
+# ZED ROS2 Wrapper dependencies version
+ARG XACRO_VERSION=2.0.8
+ARG DIAGNOSTICS_VERSION=3.0.0
+ARG AMENT_LINT_VERSION=0.12.4
+ARG GEOGRAPHIC_INFO_VERSION=1.0.4
+ARG ROBOT_LOCALIZATION_VERSION=3.4.2
+
+ENV DEBIAN_FRONTEND noninteractive
+
+# ZED SDK link
+ENV ZED_SDK_URL="https://stereolabs.sfo2.cdn.digitaloceanspaces.com/zedsdk/${ZED_SDK_MAJOR}.${ZED_SDK_MINOR}/ZED_SDK_Tegra_L4T${L4T_MAJOR}.${L4T_MINOR}_v${ZED_SDK_MAJOR}.${ZED_SDK_MINOR}.${ZED_SDK_PATCH}.zstd.run"
+
+# Check that this SDK exists
+RUN if [ "$(curl -I "${ZED_SDK_URL}" -o /dev/null -s -w '%{http_code}\n' | head -n 1)" = "200" ]; then \
+        echo "The URL points to something."; \
+    else \
+        echo "The URL does not point to a .run file or the file does not exist."; \
+        exit 1; \
+    fi
+
+# Disable apt-get warnings
+RUN apt-key adv --keyserver keyserver.ubuntu.com --recv-keys 42D5A192B819C5DA || true && \
+  apt-get update || true && apt-get install -y --no-install-recommends apt-utils dialog && \
+  rm -rf /var/lib/apt/lists/*
+
+ENV TZ=Europe/Paris
+
+RUN ln -snf /usr/share/zoneinfo/$TZ /etc/localtime && echo $TZ > /etc/timezone && \ 
+  apt-get update && \
+  apt-get install --yes lsb-release wget less udev sudo build-essential cmake python3 python3-dev python3-pip python3-wheel git jq libpq-dev zstd usbutils && \    
+  rm -rf /var/lib/apt/lists/*
+
+RUN echo "# R${L4T_MAJOR} (release), REVISION: ${L4T_MINOR}" > /etc/nv_tegra_release && \
+  apt-get update -y || true && \
+  apt-get install -y --no-install-recommends zstd wget less cmake curl gnupg2 \
+  build-essential python3 python3-pip python3-dev python3-setuptools libusb-1.0-0-dev -y && \
+  pip install protobuf && \
+  wget -q --no-check-certificate -O ZED_SDK_Linux_JP.run \
+  ${ZED_SDK_URL} && \
+  chmod +x ZED_SDK_Linux_JP.run ; ./ZED_SDK_Linux_JP.run silent skip_tools && \
+  rm -rf /usr/local/zed/resources/* && \
+  rm -rf ZED_SDK_Linux_JP.run && \
+  rm -rf /var/lib/apt/lists/*
+
+# Install the ZED ROS2 Wrapper
+ENV ROS_DISTRO ${ROS2_DIST}
+
+# Install missing dependencies
+RUN wget https://github.com/ros/xacro/archive/refs/tags/${XACRO_VERSION}.tar.gz -O - | tar -xvz && mv xacro-${XACRO_VERSION} xacro && \
+  wget https://github.com/ros/diagnostics/archive/refs/tags/${DIAGNOSTICS_VERSION}.tar.gz -O - | tar -xvz && mv diagnostics-${DIAGNOSTICS_VERSION} diagnostics && \
+  wget https://github.com/ament/ament_lint/archive/refs/tags/${AMENT_LINT_VERSION}.tar.gz -O - | tar -xvz && mv ament_lint-${AMENT_LINT_VERSION} ament-lint && \
+  wget https://github.com/cra-ros-pkg/robot_localization/archive/refs/tags/${ROBOT_LOCALIZATION_VERSION}.tar.gz -O - | tar -xvz && mv robot_localization-${ROBOT_LOCALIZATION_VERSION} robot-localization && \
+  wget https://github.com/ros-geographic-info/geographic_info/archive/refs/tags/${GEOGRAPHIC_INFO_VERSION}.tar.gz -O - | tar -xvz && mv geographic_info-${GEOGRAPHIC_INFO_VERSION} geographic-info && \
+  cp -r geographic-info/geographic_msgs/ . && \
+  rm -rf geographic-info && \
+  git clone https://github.com/ros-drivers/nmea_msgs.git --branch ros2 && \  
+  git clone https://github.com/ros/angles.git --branch humble-devel
+
+
+# Install cython
+RUN python3 -m pip install --upgrade cython
+
+# Build the dependencies and the ZED ROS2 Wrapper
+RUN /bin/bash -c "source /opt/ros/$ROS_DISTRO/install/setup.bash && \
+  colcon build --parallel-workers $(nproc) --symlink-install \
+  --event-handlers console_direct+ --base-paths src \
+  --cmake-args ' -DCMAKE_BUILD_TYPE=Release' \
+  ' -DCMAKE_LIBRARY_PATH=/usr/local/cuda/lib64/stubs' \
+  ' -DCMAKE_CXX_FLAGS="-Wl,--allow-shlib-undefined"' \
+  ' --no-warn-unused-cli' "
+  ###################################################################################################################################################
+
 # copy install script from dependencies stage
 COPY --from=dependencies $WORKSPACE/.install-dependencies.sh $WORKSPACE/.install-dependencies.sh
+
+# Add the ROS 2 GPG key
+RUN curl -sSL https://raw.githubusercontent.com/ros/rosdistro/master/ros.key -o /usr/share/keyrings/ros-archive-keyring.gpg
+
+# Add the ROS 2 repository
+RUN echo "deb [arch=$(dpkg --print-architecture) signed-by=/usr/share/keyrings/ros-archive-keyring.gpg] http://packages.ros.org/ros2/ubuntu jammy main" | tee /etc/apt/sources.list.d/ros2.list > /dev/null
 
 # install dependencies
 RUN apt-get update && \
     $WORKSPACE/.install-dependencies.sh && \
     rm -rf /var/lib/apt/lists/*
-
-# ######################################################################################################
-# ARG ZED_SDK_MAJOR=4
-# ARG ZED_SDK_MINOR=1
-# ARG ZED_SDK_PATCH=0
-# ARG JETPACK_MAJOR=5
-# ARG JETPACK_MINOR=0
-# ARG L4T_MAJOR=35
-# ARG L4T_MINOR=1
-
-# ARG ROS2_DIST=humble       # ROS2 distribution
-
-# # ZED ROS2 Wrapper dependencies version
-# ARG XACRO_VERSION=2.0.8
-# ARG DIAGNOSTICS_VERSION=3.0.0
-# ARG AMENT_LINT_VERSION=0.12.4
-# ARG GEOGRAPHIC_INFO_VERSION=1.0.4
-# ARG ROBOT_LOCALIZATION_VERSION=3.4.2
-
-# ENV DEBIAN_FRONTEND noninteractive
-
-# # ZED SDK link
-# ENV ZED_SDK_URL="https://stereolabs.sfo2.cdn.digitaloceanspaces.com/zedsdk/${ZED_SDK_MAJOR}.${ZED_SDK_MINOR}/ZED_SDK_Tegra_L4T${L4T_MAJOR}.${L4T_MINOR}_v${ZED_SDK_MAJOR}.${ZED_SDK_MINOR}.${ZED_SDK_PATCH}.zstd.run"
-
-# # Check that this SDK exists
-# RUN if [ "$(curl -I "${ZED_SDK_URL}" -o /dev/null -s -w '%{http_code}\n' | head -n 1)" = "200" ]; then \
-#         echo "The URL points to something."; \
-#     else \
-#         echo "The URL does not point to a .run file or the file does not exist."; \
-#         exit 1; \
-#     fi
-
-# # Disable apt-get warnings
-# RUN apt-key adv --keyserver keyserver.ubuntu.com --recv-keys 42D5A192B819C5DA || true && \
-#   apt-get update || true && apt-get install -y --no-install-recommends apt-utils dialog && \
-#   rm -rf /var/lib/apt/lists/*
-
-# ENV TZ=Europe/Paris
-
-# RUN ln -snf /usr/share/zoneinfo/$TZ /etc/localtime && echo $TZ > /etc/timezone && \ 
-#   apt-get update && \
-#   apt-get install --yes lsb-release wget less udev sudo build-essential cmake python3 python3-dev python3-pip python3-wheel git jq libpq-dev zstd usbutils && \    
-#   rm -rf /var/lib/apt/lists/*
-
-# RUN echo "# R${L4T_MAJOR} (release), REVISION: ${L4T_MINOR}" > /etc/nv_tegra_release && \
-#   apt-get update -y || true && \
-#   apt-get install -y --no-install-recommends zstd wget less cmake curl gnupg2 \
-#   build-essential python3 python3-pip python3-dev python3-setuptools libusb-1.0-0-dev -y && \
-#   pip install protobuf && \
-#   wget -q --no-check-certificate -O ZED_SDK_Linux_JP.run \
-#   ${ZED_SDK_URL} && \
-#   chmod +x ZED_SDK_Linux_JP.run ; ./ZED_SDK_Linux_JP.run silent skip_tools && \
-#   rm -rf /usr/local/zed/resources/* && \
-#   rm -rf ZED_SDK_Linux_JP.run && \
-#   rm -rf /var/lib/apt/lists/*
-
-# # Install the ZED ROS2 Wrapper
-# ENV ROS_DISTRO ${ROS2_DIST}
-
-# # Install missing dependencies
-# RUN wget https://github.com/ros/xacro/archive/refs/tags/${XACRO_VERSION}.tar.gz -O - | tar -xvz && mv xacro-${XACRO_VERSION} xacro && \
-#   wget https://github.com/ros/diagnostics/archive/refs/tags/${DIAGNOSTICS_VERSION}.tar.gz -O - | tar -xvz && mv diagnostics-${DIAGNOSTICS_VERSION} diagnostics && \
-#   wget https://github.com/ament/ament_lint/archive/refs/tags/${AMENT_LINT_VERSION}.tar.gz -O - | tar -xvz && mv ament_lint-${AMENT_LINT_VERSION} ament-lint && \
-#   wget https://github.com/cra-ros-pkg/robot_localization/archive/refs/tags/${ROBOT_LOCALIZATION_VERSION}.tar.gz -O - | tar -xvz && mv robot_localization-${ROBOT_LOCALIZATION_VERSION} robot-localization && \
-#   wget https://github.com/ros-geographic-info/geographic_info/archive/refs/tags/${GEOGRAPHIC_INFO_VERSION}.tar.gz -O - | tar -xvz && mv geographic_info-${GEOGRAPHIC_INFO_VERSION} geographic-info && \
-#   cp -r geographic-info/geographic_msgs/ . && \
-#   rm -rf geographic-info && \
-#   git clone https://github.com/ros-drivers/nmea_msgs.git --branch ros2 && \  
-#   git clone https://github.com/ros/angles.git --branch humble-devel
-
-# # Check that all the dependencies are satisfied
-# WORKDIR $WORKSPACE
-# RUN apt-get update -y || true && rosdep update && \
-#   rosdep install --from-paths src --ignore-src -r -y && \
-#   rm -rf /var/lib/apt/lists/*
-
-# # Install cython
-# RUN python3 -m pip install --upgrade cython
-
-# # Build the dependencies and the ZED ROS2 Wrapper
-# RUN /bin/bash -c "source /opt/ros/$ROS_DISTRO/install/setup.bash && \
-#   colcon build --parallel-workers $(nproc) --symlink-install \
-#   --event-handlers console_direct+ --base-paths src \
-#   --cmake-args ' -DCMAKE_BUILD_TYPE=Release' \
-#   ' -DCMAKE_LIBRARY_PATH=/usr/local/cuda/lib64/stubs' \
-#   ' -DCMAKE_CXX_FLAGS="-Wl,--allow-shlib-undefined"' \
-#   ' --no-warn-unused-cli' "
-#   ###################################################################################################################################################
 
 # install ROS CLI tools
 RUN source /opt/ros/$ROS_DISTRO/install/setup.bash && \
