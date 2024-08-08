@@ -176,7 +176,7 @@ RUN wget https://github.com/ros/xacro/archive/refs/tags/${XACRO_VERSION}.tar.gz 
 
 # Check that all the dependencies are satisfied
 RUN apt-get update -y || true && rosdep update && \
-  rosdep install --from-paths src --ignore-src -r -y && \
+  rosdep install --os ubuntu:jammy --from-paths src --ignore-src -r -y && \
   rm -rf /var/lib/apt/lists/*
 
 
@@ -210,16 +210,8 @@ RUN source /opt/ros/$ROS_DISTRO/install/setup.bash && \
     fi \
     && rm -rf /var/lib/apt/lists/*
 
-# install desired ROS 2 middleware
-ARG RMW_IMPLEMENTATION="rmw_cyclonedds_cpp"
-ENV RMW_IMPLEMENTATION=${RMW_IMPLEMENTATION}
-RUN source /opt/ros/$ROS_DISTRO/install/setup.bash && \
-    if [[ "$ROS_VERSION" == "2" ]]; then \
-        apt-get update && \
-        RMW_PACKAGE=ros-$ROS_DISTRO-$(echo $RMW_IMPLEMENTATION | tr '_' '-') && \
-        apt-get install -y $RMW_PACKAGE && \
-        rm -rf /var/lib/apt/lists/* ; \
-    fi
+# Set the default DDS middleware to FastRTPS for improved big data transmission
+ENV RMW_IMPLEMENTATION=rmw_fastrtps_cpp
 
 # source ROS
 RUN echo "source /opt/ros/$ROS_DISTRO/install/setup.bash" >> ~/.bashrc
