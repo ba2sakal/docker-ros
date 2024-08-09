@@ -71,7 +71,6 @@ ENV DOCKER_USER=dockeruser
 ENV DOCKER_UID=
 ENV DOCKER_GID=
 
-
 # ROS setup
 ENV RCUTILS_COLORIZED_OUTPUT=1
 ENV WORKSPACE=/docker-ros/ws
@@ -162,22 +161,14 @@ RUN wget https://github.com/ros/xacro/archive/refs/tags/${XACRO_VERSION}.tar.gz 
   cp -r geographic-info/geographic_msgs/ . && \
   rm -rf geographic-info && \
   git clone https://github.com/ros-drivers/nmea_msgs.git --branch ros2 && \  
-  git clone https://github.com/ros/angles.git --branch humble-devel
+  git clone https://github.com/ros/angles.git --branch humble-devel && \
+  git clone https://github.com/ros-perception/point_cloud_transport.git --branch humble
 
 WORKDIR $WORKSPACE
 # Check that all the dependencies are satisfied
 RUN apt-get update -y || true && rosdep update && \
   rosdep install --from-paths src --ignore-src -r -y && \
   rm -rf /var/lib/apt/lists/*
-
-# Build the dependencies and the ZED ROS2 Wrapper
-RUN /bin/bash -c "source /opt/ros/$ROS_DISTRO/install/setup.bash && \
-  colcon build --parallel-workers $(nproc) --symlink-install \
-  --event-handlers console_direct+ --base-paths src \
-  --cmake-args ' -DCMAKE_BUILD_TYPE=Release' \
-  ' -DCMAKE_LIBRARY_PATH=/usr/local/cuda/lib64/stubs' \
-  ' -DCMAKE_CXX_FLAGS="-Wl,--allow-shlib-undefined"' \
-  ' --no-warn-unused-cli' "
 
 # Install cython
 RUN python3 -m pip install --upgrade cython
