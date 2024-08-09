@@ -85,6 +85,7 @@ ENV DOCKER_USER=dockeruser
 ENV DOCKER_UID=
 ENV DOCKER_GID=
 
+
 # ROS setup
 ENV RCUTILS_COLORIZED_OUTPUT=1
 ENV WORKSPACE=/docker-ros/ws
@@ -106,6 +107,9 @@ RUN apt-get update && \
 RUN python -m pip config --global set global.break-system-packages true
 
 ######################################################################################################
+
+WORKDIR $WORKSPACE/src
+
 ARG ZED_SDK_MAJOR=4
 ARG ZED_SDK_MINOR=1
 ARG ZED_SDK_PATCH=0
@@ -174,9 +178,10 @@ RUN wget https://github.com/ros/xacro/archive/refs/tags/${XACRO_VERSION}.tar.gz 
   git clone https://github.com/ros-drivers/nmea_msgs.git --branch ros2 && \  
   git clone https://github.com/ros/angles.git --branch humble-devel
 
+  WORKDIR $WORKSPACE
 # Check that all the dependencies are satisfied
 RUN apt-get update -y || true && rosdep update && \
-  rosdep install --os ubuntu:jammy --from-paths src --ignore-src -r -y && \
+  rosdep install --from-paths src --ignore-src -r -y && \
   rm -rf /var/lib/apt/lists/*
 
 
